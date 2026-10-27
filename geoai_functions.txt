@@ -1,0 +1,31 @@
+
+================================================================================
+summarise_neighbourhood
+================================================================================
+def summarise_neighbourhood(neighbourhood, pois_gdf):
+
+    subset = pois_gdf[
+        pois_gdf["ntaname"]
+        .str.contains(neighbourhood, case=False, na=False)
+    ]
+
+    total = len(subset)
+
+    top_categories = (
+        subset["amenity"]
+        .value_counts()
+        .head(5)
+    )
+
+    summary = (
+        f"{subset['ntaname'].iloc[0]} — "
+        f"{total} total POIs\n\n"
+        f"Top categories:\n"
+    )
+
+    for category, count in top_categories.items():
+        summary += f"{category}: {count}\n"
+
+    return summary
+
+

@@ -1,0 +1,532 @@
+def count_pois(category, neighbourhood, pois_gdf):
+
+    result = pois_gdf[
+        (pois_gdf["amenity"].str.lower() == category.lower())
+        &
+        (
+            pois_gdf["ntaname"]
+            .str.lower()
+            .str.contains(neighbourhood.lower(), na=False)
+        )
+    ]
+
+    count = len(result)
+
+    if count > 0:
+        nta_name = result["ntaname"].iloc[0]
+    else:
+        nta_name = neighbourhood
+
+    return nta_name, count
+
+q2 = "How many restaurants are there in the Upper West Side?"
+
+print(f"Query: {q2}\n")
+
+nta_name, n = count_pois(
+    category="restaurant",
+    neighbourhood="Upper West Side",
+    pois_gdf=pois_with_nta
+)
+
+print(
+    "[1] count_pois(category='restaurant', "
+    "neighbourhood='Upper West Side')"
+)
+
+print(
+    f"→ {nta_name}: {n} POIs in category 'restaurant'"
+)
+
+print(
+    f"Answer: There are {n} restaurants in the Upper West Side."
+)
+
+q_test = "How many restaurants are there in SoHo?"
+
+print(f"Query: {q_test}\n")
+
+nta_name, n = count_pois(
+    category="restaurant",
+    neighbourhood="SoHo",
+    pois_gdf=pois_with_nta
+)
+
+print(
+    "[1] count_pois(category='restaurant', "
+    "neighbourhood='SoHo')"
+)
+
+print(
+    f"→ {nta_name}: {n} POIs in category 'restaurant'"
+)
+
+print(
+    f"Answer: There are {n} restaurants in SoHo."
+)
+
+q_test = "How many restaurants are there in the Financial District?"
+
+print(f"Query: {q_test}\n")
+
+nta_name, n = count_pois(
+    category="restaurant",
+    neighbourhood="Financial District",
+    pois_gdf=pois_with_nta
+)
+
+print(
+    "[1] count_pois(category='restaurant', "
+    "neighbourhood='Financial District')"
+)
+
+print(
+    f"→ {nta_name}: {n} POIs in category 'restaurant'"
+)
+
+print(
+    f"Answer: There are {n} restaurants in the Financial District."
+)
+
+def run_agent(query):
+
+    q = query.lower()
+
+    if "how many restaurants" in q:
+
+        neighbourhoods = [
+            "Upper West Side",
+            "SoHo",
+            "Financial District"
+        ]
+
+        for nb in neighbourhoods:
+            if nb.lower() in q:
+
+                nta_name, n = count_pois(
+                    category="restaurant",
+                    neighbourhood=nb,
+                    pois_gdf=pois_with_nta
+                )
+
+                return (
+                    f"There are {n} restaurants in {nb}."
+                )
+
+    return "I don't yet know how to answer that question."
+
+nta_name, n = count_pois(
+    category="restaurant",
+    neighbourhood="SoHo",
+    pois_gdf=pois_with_nta
+)
+
+print(nta_name)
+print(n)
+
+import re
+
+def run_agent(query):
+
+    q = query.lower()
+
+    if "how many restaurants" in q:
+
+        m = re.search(r"in (.+?)\??$", query)
+
+        if m:
+            neighbourhood = m.group(1).strip()
+
+            nta_name, n = count_pois(
+                category="restaurant",
+                neighbourhood=neighbourhood,
+                pois_gdf=pois_with_nta
+            )
+
+            return f"There are {n} restaurants in {nta_name}."
+
+    return "I don't yet know how to answer that question."
+
+run_agent("How many restaurants are there in SoHo?")
+run_agent("How many restaurants are there in Chelsea?")
+run_agent("How many restaurants are there in Harlem?")
+run_agent("How many restaurants are there in Upper West Side?")
+
+for nb in ["SoHo", "Chelsea", "Harlem", "Upper West Side"]:
+    try:
+        nta_name, n = count_pois(
+            category="restaurant",
+            neighbourhood=nb,
+            pois_gdf=pois_with_nta
+        )
+        print(f"{nb} -> {nta_name}: {n}")
+    except Exception as e:
+        print(f"{nb} -> ERROR: {e}")
+
+import folium
+
+def restaurant_map(neighbourhood):
+
+    nta_name, n = count_pois(
+        category="restaurant",
+        neighbourhood=neighbourhood,
+        pois_gdf=pois_with_nta
+    )
+
+    # NTA polygon
+    nta = manhattan[
+        manhattan["ntaname"] == nta_name
+    ]
+
+    # Restaurant points
+    restaurants = pois_with_nta[
+        (pois_with_nta["amenity"] == "restaurant") &
+        (pois_with_nta["ntaname"] == nta_name)
+    ]
+
+    if restaurants.empty:
+        print("No restaurants found.")
+        return None
+
+    # Centre map
+    centre = restaurants.geometry.unary_union.centroid
+
+    m = folium.Map(
+        location=[centre.y, centre.x],
+        zoom_start=14
+    )
+
+    # Add neighbourhood boundary
+    if not nta.empty:
+        folium.GeoJson(
+            nta.__geo_interface__,
+            style_function=lambda x: {
+                "fillColor": "lightblue",
+                "color": "blue",
+                "weight": 2,
+                "fillOpacity": 0.3
+            }
+        ).add_to(m)
+
+    # Add restaurant points
+    for _, row in restaurants.iterrows():
+        folium.CircleMarker(
+            location=[row.geometry.y, row.geometry.x],
+            radius=3,
+            color="red",
+            fill=True,
+            fill_opacity=0.8
+        ).add_to(m)
+
+    return m
+
+m = restaurant_map("Chelsea")
+m
+
+restaurant_map("SoHo")
+
+import re
+from IPython.display import display
+
+def run_agent(query):
+
+    q = query.lower()
+
+    if "how many restaurants" in q:
+
+        m = re.search(r"in (.+?)\??$", query)
+
+        if m:
+
+            neighbourhood = m.group(1).strip()
+
+            nta_name, n = count_pois(
+                category="restaurant",
+                neighbourhood=neighbourhood,
+                pois_gdf=pois_with_nta
+            )
+
+            print(f"Answer: There are {n} restaurants in {nta_name}.")
+
+            # Display interactive map
+            mapp = restaurant_map(neighbourhood)
+
+            if mapp is not None:
+                display(mapp)
+
+            return f"There are {n} restaurants in {nta_name}."
+
+    return "I don't yet know how to answer that question."
+      
+run_agent("How many restaurants are there in Chelsea?")
+
+import folium
+
+def restaurant_map(neighbourhood):
+
+    nta_name, n = count_pois(
+        category="restaurant",
+        neighbourhood=neighbourhood,
+        pois_gdf=pois_with_nta
+    )
+
+    nta = manhattan[
+        manhattan["ntaname"] == nta_name
+    ]
+
+    restaurants = pois_with_nta[
+        (pois_with_nta["amenity"] == "restaurant") &
+        (pois_with_nta["ntaname"] == nta_name)
+    ]
+
+    if restaurants.empty:
+        return None
+
+    centre = restaurants.geometry.unary_union.centroid
+
+    m = folium.Map(
+        location=[centre.y, centre.x],
+        zoom_start=14
+    )
+
+    # Neighborhood polygon
+    if not nta.empty:
+        folium.GeoJson(
+            nta.__geo_interface__,
+            style_function=lambda x: {
+                "fillColor": "lightblue",
+                "color": "blue",
+                "weight": 2,
+                "fillOpacity": 0.3
+            }
+        ).add_to(m)
+
+    # Restaurant locations
+    for _, row in restaurants.iterrows():
+
+        folium.CircleMarker(
+            location=[
+                row.geometry.y,
+                row.geometry.x
+            ],
+            radius=4,
+            color="red",
+            fill=True,
+            popup=f"Restaurant ID: {row['id']}"
+        ).add_to(m)
+
+    return m
+
+run_agent("Show restaurants in Chelsea")
+
+run_agent("Show restaurants in SoHo")
+
+run_agent("How many restaurants are there in Harlem?")
+
+def nearby_food(lat, lon, radius_m, all_near):
+
+    restaurants = all_near[
+        all_near["amenity"] == "restaurant"
+    ]
+
+    cafes = all_near[
+        all_near["amenity"] == "cafe"
+    ]
+
+    return restaurants, cafes
+from src.analytics import nearby_food
+from src.mapping import nearby_food_map
+
+print("✅ Imports successful")
+
+from importlib import reload
+import src.mapping
+
+reload(src.mapping)
+
+from src.mapping import nearby_food_map
+
+m = nearby_food_map(
+    restaurants,
+    cafes,
+    40.706,
+    -74.011,
+    1000
+)
+
+print(type(m))
+
+m = nearby_food_map(
+    restaurants,
+    cafes,
+    40.706,
+    -74.011,
+    1000
+)
+
+m
+
+
+def count_pois(category, neighbourhood):
+
+    result = pois_with_nta[
+        (pois_with_nta["amenity"].str.lower() == category.lower())
+        &
+        (
+            pois_with_nta["ntaname"]
+            .str.lower()
+            .str.contains(neighbourhood.lower(), na=False)
+        )
+    ]
+
+    return len(result)
+
+
+def rank_neighbourhoods(category):
+
+    result = pois_with_nta[
+        pois_with_nta["amenity"].str.lower() == category.lower()
+    ]
+
+    return (
+        result.groupby("ntaname")
+        .size()
+        .sort_values(ascending=False)
+    )
+
+
+def summarise_neighbourhood_simple(neighbourhood):
+
+    subset = pois_with_nta[
+        pois_with_nta["ntaname"]
+        .str.contains(neighbourhood,
+                      case=False,
+                      na=False)
+    ]
+
+    if len(subset) == 0:
+        return "Neighbourhood not found."
+
+    top = subset["amenity"].value_counts().head(10)
+
+q2 = "How many restaurants are there in the Upper West Side?"
+
+print(f"Query: {q2}\n")
+
+n = count_pois(
+    category="restaurant",
+    neighbourhood="Upper West Side"
+)
+
+print(
+    "[1] count_pois("
+    "category='restaurant', "
+    "neighbourhood='Upper West Side')"
+)
+
+print(
+    f"→ {n} restaurant POIs in Upper West Side"
+)
+
+print(
+    f"Answer: There are {n} restaurants in the Upper West Side."
+)
+
+q3 = "Which neighbourhood has the highest number of bars?"
+
+print(f"Query: {q3}\n")
+
+ranking = rank_neighbourhoods("bar")
+
+print(
+    "[1] rank_neighbourhoods(category='bar')"
+)
+
+print("\nTop 10 NTAs:\n")
+
+print(ranking.head(10))
+
+top_nta = ranking.index[0]
+top_count = ranking.iloc[0]
+
+print(
+    f"\nAnswer: {top_nta} has the highest number of bars ({top_count})."
+)
+
+q4 = "What kind of neighbourhood is SoHo?"
+
+print(f"Query: {q4}\n")
+
+summary = summarise_neighbourhood_simple("SoHo")
+
+print(
+    "[1] summarise_neighbourhood('SoHo')"
+)
+
+print("\nTop amenities:\n")
+print(summary)
+
+print(
+    "\nAnswer: SoHo appears to be a mixed-use neighbourhood "
+    "with a strong concentration of commercial, hospitality "
+    "and visitor-oriented amenities."
+)
+
+from shapely.geometry import Point
+
+def nearby_food(lat, lon, radius_m=1000):
+
+    pt = gpd.GeoSeries(
+        [Point(lon, lat)],
+        crs="EPSG:4326"
+    )
+
+    pt_proj = pt.to_crs(2263)
+
+    pois_proj = pois_with_nta.to_crs(2263)
+
+    nearby = pois_proj[
+        pois_proj.distance(pt_proj.iloc[0]) <= radius_m
+    ]
+
+    restaurants = nearby[
+        nearby["amenity"] == "restaurant"
+    ]
+
+    cafes = nearby[
+        nearby["amenity"] == "cafe"
+    ]
+
+    return restaurants, cafes
+
+q5 = (
+    "I'm staying in the Financial District. "
+    "What restaurants and cafes are within 1 km?"
+)
+
+print(f"Query: {q5}\n")
+
+restaurants, cafes = nearby_food(
+    lat=40.706,
+    lon=-74.011,
+    radius_m=1000
+)
+
+print(
+    "[1] nearby_food(lat=40.706, lon=-74.011, radius_m=1000)"
+)
+
+print(
+    f"→ Restaurants: {len(restaurants)}"
+)
+
+print(
+    f"→ Cafes: {len(cafes)}"
+)
+
+print(
+    f"\nAnswer: There are {len(restaurants)} restaurants "
+    f"and {len(cafes)} cafes within one kilometre of "
+    f"the Financial District."
+)
+
